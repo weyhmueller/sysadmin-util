@@ -3,6 +3,7 @@
 # About
 # -----
 # Check the expiry date of the SSL certificate on the given host.
+# Inform the user about potential problems due to SHA1 phase-out.
 #
 #
 # License
@@ -64,7 +65,7 @@ fi
 #
 #  Download the certificate
 #
-if ( ! echo "" | openssl s_client -connect $name:$port > $tmp 2>/dev/null ); then
+if ( ! echo "" | openssl s_client -connect $name:$port -servername $name> $tmp 2>/dev/null ); then
    echo "Failed to get cert from https://$name:$port/"
    exit 3
 fi
@@ -74,6 +75,12 @@ fi
 #  Get the expiry date
 #
 date=$(openssl x509 -in "$tmp" -noout -enddate | awk -F= '{print $2}')
+
+
+#
+#  Get the Certificate Signature Algorithm
+#
+algorithm=$(openssl x509 -in "$tmp" -noout -text | grep "Signature" | head -1 | awk -F: '{gsub(/^ /, "", $2);print $2}')
 
 #
 #  Remove the temporary file
@@ -108,8 +115,29 @@ diff=$(expr "$then" - "$now" )
 diff=$(expr $diff / 86400 )
 
 #
+#  Check if SHA1 && certificate expiry date after Jan 1 2016 #insecure, no user action required
+#  Check if SHA1 && certificate expiry date after Jan 1 2017 #insecure, mixed content (user action required)
+#
+
+date1="1451602800" # Jan 1 2016
+date2="1483225200" # Jan 1 2017
+sha1prob="no"
+
+if [ "$algorithm" == "sha1WithRSAEncryption" ]; then
+  if [ $then -gt $date1 ]; then
+    sha1prob="WARN: The Certificate is signed with SHA1 and expires after Jan 1, 2016\nCertificate will be rendered invalid in Chrome 39"
+    if [ $then -gt $date2 ]; then
+      sha1prob="CRIT: The Certificate is signed with SHA1 and expires after Jan 1, 2017\nCertificate will be rendered invalid in Chrome 39. User Interaction required!"
+    fi
+  fi
+fi
+
+#
 #  All done
 #
 echo "Certificate presented at : $name"
 echo "Expires: $date  [$diff days in the future]"
 
+if [ "$sha1prob" != "no" ]; then
+  echo "$sha1prob"
+fi
