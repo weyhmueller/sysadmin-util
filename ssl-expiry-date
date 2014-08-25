@@ -123,7 +123,7 @@ date1="1451602800" # Jan 1 2016
 date2="1483225200" # Jan 1 2017
 sha1prob="no"
 
-if [ "$algorithm" == "sha1WithRSAEncryption" ]; then
+if [ "$algorithm" = "sha1WithRSAEncryption" ]; then
   if [ $then -gt $date1 ]; then
     sha1prob="WARN: The Certificate is signed with SHA1 and expires after Jan 1, 2016\nCertificate will be rendered invalid in Chrome 39"
     if [ $then -gt $date2 ]; then
